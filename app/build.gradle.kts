@@ -1,3 +1,9 @@
+configurations.all {
+    resolutionStrategy {
+        force("com.google.guava:guava:30.1.1-android")
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
