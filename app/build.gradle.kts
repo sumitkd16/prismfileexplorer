@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.raival.compose.file.explorer"
-    compileSdk = 36
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.raival.compose.file.explorer"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 10
         versionName = "1.3.2"
     }
