@@ -199,3 +199,4 @@ See the [LICENSE](LICENSE) file for the full license text.
 **⭐ If you find this project useful, please consider giving it a star!**
 
 [![Star History](https://img.shields.io/github/stars/Raival-e/Prism-File-Explorer?style=social)](https://github.com/Raival-e/Prism-File-Explorer/stargazers)
+ 
