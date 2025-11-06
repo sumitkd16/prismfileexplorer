@@ -38,9 +38,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-        apiVersion = "1.9"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     baselineProfile {
@@ -79,7 +80,9 @@ dependencies {
     implementation(libs.androidx.palette.ktx)
 
     // Sora Code Editor
-    implementation(libs.sora.editor)
+    implementation(libs.sora.editor) {
+        exclude(group = "com.google.guava", module = "guava")
+    }
     implementation(libs.sora.editor.language.java)
     implementation(libs.sora.editor.language.textmate)
 
