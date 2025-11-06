@@ -1,6 +1,7 @@
 package com.raival.compose.file.explorer.screen.main.tab.files.ui
 
 import android.annotation.SuppressLint
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -139,7 +140,7 @@ fun FileIcon(
                 modifier = Modifier.size(iconSize.dp),
                 model = ImageRequest
                     .Builder(globalClass)
-                    .data(contentHolder)
+                    .data(Uri.parse(contentHolder.path))
                     .build(),
                 filterQuality = FilterQuality.Low,
                 contentScale = ContentScale.Fit,
