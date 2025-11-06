@@ -2,6 +2,7 @@ package com.raival.compose.file.explorer.screen.viewer.image.ui
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -160,19 +161,19 @@ fun ImageViewerScreen(instance: ImageViewerInstance) {
                 // Main image with zoom and rotation
                 var image by remember { mutableStateOf<Image?>(null) }
 
-                HorizontalPager(pageCount = instance.imageList.size, state = pagerState) {
+                HorizontalPager(pageCount = instance.imageList.size, state = pagerState) {page ->
                     ZoomableAsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(instance.imageList[it])
+                            .data(Uri.parse(instance.imageList[page]))
                             .listener(
-                                onSuccess = { _, state ->
-                                    image = (state as SuccessResult).image
+                                onSuccess = { _, result ->
+                                    image = (result as SuccessResult).image
                                     image?.let {
                                         imageDimensions = "${it.width}" to "${it.height}"
                                     }
                                 },
                                 onError = { _, error ->
-                                    logger.logError(error.result.throwable)
+                                    logger.logError(error.throwable)
                                     isError = true
                                     isLoading = false
                                 }
@@ -322,8 +323,8 @@ fun ImageViewerScreen(instance: ImageViewerInstance) {
                         onEdit = {
                             val editIntent = Intent(Intent.ACTION_EDIT)
                             val mimeType =
-                                context.contentResolver.getType(instance.imageList[pagerState.currentPage]) ?: "image/*"
-                            editIntent.setDataAndType(instance.imageList[pagerState.currentPage], mimeType)
+                                context.contentResolver.getType(Uri.parse(instance.imageList[pagerState.currentPage])) ?: "image/*"
+                            editIntent.setDataAndType(Uri.parse(instance.imageList[pagerState.currentPage]), mimeType)
                             editIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                             val chooser = Intent.createChooser(
                                 editIntent,
@@ -414,7 +415,7 @@ private fun ErrorState(onClose: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = stringResource(R.string.check_file_exists_and_try_again),
-                style = MaterialTheme.typography.bodyMedium,
+                style = Material.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
             Spacer(modifier = Modifier.height(24.dp))
