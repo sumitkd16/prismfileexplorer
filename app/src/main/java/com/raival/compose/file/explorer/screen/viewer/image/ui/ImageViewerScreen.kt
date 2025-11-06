@@ -24,22 +24,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.RotateRight
-import androidx.compose.material.icons.filled.BorderOuter
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.FilterCenterFocus
-import androidx.compose.material.icons.filled.FitScreen
-import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.InvertColors
-import androidx.compose.material.icons.filled.WidthFull
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -66,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -79,21 +78,21 @@ import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
 import coil3.Image
 import coil3.request.ImageRequest
+import coil3.request.SuccessResult
 import coil3.toBitmap
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.App.Companion.logger
 import com.raival.compose.file.explorer.R
-import com.raival.compose.file.explorer.common.read
 import com.raival.compose.file.explorer.common.showMsg
 import com.raival.compose.file.explorer.screen.viewer.ViewerActivity
-import com.raival.compose.file.explorer.screen.viewer.ViewerInstance
+import com.raival.compose.file.explorer.screen.viewer.image.ImageViewerInstance
 import com.raival.compose.file.explorer.screen.viewer.image.misc.ImageInfo
 import com.raival.compose.file.explorer.screen.viewer.image.misc.ImageInfo.Companion.extractImageInfo
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ImageViewerScreen(instance: ViewerInstance) {
+fun ImageViewerScreen(instance: ImageViewerInstance) {
     val defaultColor = MaterialTheme.colorScheme.surface
     var dominantColor by remember { mutableStateOf(defaultColor) }
     var secondaryColor by remember { mutableStateOf(defaultColor) }
@@ -104,7 +103,6 @@ fun ImageViewerScreen(instance: ViewerInstance) {
         Color.Black
     )
     var currentImageBackgroundColorIndex by remember { mutableIntStateOf(0) }
-    var imageData by remember { mutableStateOf(ByteArray(0)) }
     var isLoading by remember { mutableStateOf(true) }
     var isError by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
@@ -112,13 +110,14 @@ fun ImageViewerScreen(instance: ViewerInstance) {
     var imageInfo by remember { mutableStateOf<ImageInfo?>(null) }
     var rotationAngle by remember { mutableFloatStateOf(0f) }
     var imageDimensions by remember { mutableStateOf("" to "") }
-    var contentScale by remember { mutableStateOf(ContentScale.Fit) }
+    val contentScale by remember { mutableStateOf(ContentScale.Fit) }
     val context = LocalContext.current
+    val pagerState = rememberPagerState(initialPage = instance.imageList.indexOf(instance.uri))
+    var isBookmarked by remember { mutableStateOf(false) }
 
     // Load image data
-    LaunchedEffect(instance.uri) {
+    LaunchedEffect(pagerState.currentPage) {
         try {
-            imageData = instance.uri.read()
             isLoading = false
         } catch (e: Exception) {
             logger.logError(e)
@@ -128,11 +127,15 @@ fun ImageViewerScreen(instance: ViewerInstance) {
     }
 
     // Extract image info when image is loaded
-    LaunchedEffect(imageData, imageDimensions.first) {
-        if (imageData.isNotEmpty() && imageDimensions.first.isNotEmpty()) {
+    LaunchedEffect(pagerState.currentPage, imageDimensions.first) {
+        if (imageDimensions.first.isNotEmpty()) {
             imageInfo =
-                extractImageInfo(instance.uri, imageDimensions.first, imageDimensions.second)
+                extractImageInfo(instance.imagePathList[pagerState.currentPage], imageDimensions.first, imageDimensions.second)
         }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        isBookmarked = globalClass.preferencesManager.bookmarks.contains(instance.imagePathList[pagerState.currentPage])
     }
 
     Box(
@@ -157,32 +160,34 @@ fun ImageViewerScreen(instance: ViewerInstance) {
                 // Main image with zoom and rotation
                 var image by remember { mutableStateOf<Image?>(null) }
 
-                ZoomableAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(instance.uri)
-                        .listener(
-                            onSuccess = { _, state ->
-                                image = state.image
-                                image?.let {
-                                    imageDimensions = "${it.width}" to "${it.height}"
+                HorizontalPager(pageCount = instance.imageList.size, state = pagerState) {
+                    ZoomableAsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(instance.imageList[it])
+                            .listener(
+                                onSuccess = { _, state ->
+                                    image = (state as SuccessResult).image
+                                    image?.let {
+                                        imageDimensions = "${it.width}" to "${it.height}"
+                                    }
+                                },
+                                onError = { _, error ->
+                                    logger.logError(error.result.throwable)
+                                    isError = true
+                                    isLoading = false
                                 }
-                            },
-                            onError = { _, error ->
-                                logger.logError(error.throwable)
-                                isError = true
-                                isLoading = false
-                            }
-                        ).build(),
-                    contentDescription = null,
-                    contentScale = contentScale,
-                    onClick = {
-                        showControls = !showControls
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { rotationZ = rotationAngle }
-                        .background(imageBackgroundColors[currentImageBackgroundColorIndex])
-                )
+                            ).build(),
+                        contentDescription = null,
+                        contentScale = contentScale,
+                        onClick = {
+                            showControls = !showControls
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { rotationZ = rotationAngle }
+                            .background(imageBackgroundColors[currentImageBackgroundColorIndex])
+                    )
+                }
 
                 // Extract dominant color
                 LaunchedEffect(image) {
@@ -306,6 +311,7 @@ fun ImageViewerScreen(instance: ViewerInstance) {
                     exit = slideOutVertically { it } + fadeOut()
                 ) {
                     BottomControls(
+                        isBookmarked = isBookmarked,
                         onInvertBackgroundColors = {
                             currentImageBackgroundColorIndex =
                                 (currentImageBackgroundColorIndex + 1) % imageBackgroundColors.size
@@ -316,8 +322,8 @@ fun ImageViewerScreen(instance: ViewerInstance) {
                         onEdit = {
                             val editIntent = Intent(Intent.ACTION_EDIT)
                             val mimeType =
-                                context.contentResolver.getType(instance.uri) ?: "image/*"
-                            editIntent.setDataAndType(instance.uri, mimeType)
+                                context.contentResolver.getType(instance.imageList[pagerState.currentPage]) ?: "image/*"
+                            editIntent.setDataAndType(instance.imageList[pagerState.currentPage], mimeType)
                             editIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                             val chooser = Intent.createChooser(
                                 editIntent,
@@ -329,8 +335,16 @@ fun ImageViewerScreen(instance: ViewerInstance) {
                                 showMsg(context.getString(R.string.no_app_found_to_edit_this_image))
                             }
                         },
-                        onContentScale = {
-                            contentScale = it
+                        onBookmark = {
+                            val imagePath = instance.imagePathList[pagerState.currentPage]
+                            val bookmarks = globalClass.preferencesManager.bookmarks.toMutableSet()
+                            if (bookmarks.contains(imagePath)) {
+                                bookmarks.remove(imagePath)
+                            } else {
+                                bookmarks.add(imagePath)
+                            }
+                            globalClass.preferencesManager.bookmarks = bookmarks
+                            isBookmarked = !isBookmarked
                         },
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
@@ -420,22 +434,13 @@ private fun ErrorState(onClose: () -> Unit) {
 
 @Composable
 private fun BottomControls(
+    isBookmarked: Boolean,
     onInvertBackgroundColors: () -> Unit,
     onRotate: () -> Unit,
     onEdit: () -> Unit,
-    onContentScale: (contentScale: ContentScale) -> Unit,
+    onBookmark: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val contentScales = arrayListOf<ContentScale>().apply {
-        add(ContentScale.Fit)
-        add(ContentScale.Crop)
-        add(ContentScale.FillWidth)
-        add(ContentScale.FillHeight)
-        add(ContentScale.FillBounds)
-        add(ContentScale.Inside)
-    }
-    var selectedContentScale by remember { mutableStateOf(contentScales[0]) }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -450,24 +455,10 @@ private fun BottomControls(
             backgroundColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
         )
 
-        // Fit to screen
+        // Bookmark
         ActionButton(
-            icon = when (selectedContentScale) {
-                ContentScale.Fit -> Icons.Default.FitScreen
-                ContentScale.Crop -> Icons.Default.Crop
-                ContentScale.FillWidth -> Icons.Default.WidthFull
-                ContentScale.FillHeight -> Icons.Default.Height
-                ContentScale.FillBounds -> Icons.Default.BorderOuter
-                else -> Icons.Default.FilterCenterFocus
-            },
-            onClick = {
-                val currentScaleIndex = contentScales.indexOf(selectedContentScale)
-                selectedContentScale = contentScales[
-                    if (currentScaleIndex == contentScales.lastIndex) 0
-                    else currentScaleIndex + 1
-                ]
-                onContentScale(selectedContentScale)
-            },
+            icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+            onClick = onBookmark,
             backgroundColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
         )
 

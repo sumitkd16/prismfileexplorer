@@ -10,14 +10,21 @@ import com.raival.compose.file.explorer.theme.FileExplorerTheme
 
 class ImageViewerActivity : ViewerActivity() {
     override fun onCreateNewInstance(uri: Uri, uid: String): ViewerInstance {
-        return ImageViewerInstance(uri, uid)
+        val imageList = intent.getStringArrayListExtra("imageList")
+        val imagePathList = intent.getStringArrayListExtra("imagePathList")
+        return ImageViewerInstance(
+            uri,
+            uid,
+            imageList?.map { Uri.parse(it) } ?: emptyList(),
+            imagePathList ?: emptyList()
+        )
     }
 
     override fun onReady(instance: ViewerInstance) {
         setContent {
             FileExplorerTheme {
                 SafeSurface(enableStatusBarsPadding = false) {
-                    ImageViewerScreen(instance)
+                    ImageViewerScreen(instance as ImageViewerInstance)
                 }
             }
         }

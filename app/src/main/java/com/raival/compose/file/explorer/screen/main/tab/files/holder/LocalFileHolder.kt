@@ -232,7 +232,12 @@ class LocalFileHolder(val file: File) : ContentHolder() {
         return appsList
     }
 
-    fun openFileWithPackage(context: Context, packageName: String, className: String) {
+    fun openFileWithPackage(
+        context: Context,
+        packageName: String,
+        className: String,
+        openAs: Intent.() -> Unit = {}
+    ) {
         val uri = createUri()
 
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -246,6 +251,7 @@ class LocalFileHolder(val file: File) : ContentHolder() {
             )
             setPackage(packageName)
             setClassName(packageName, className)
+            openAs(this)
         }
 
         if (intent.resolveActivity(globalClass.packageManager) != null) {
@@ -254,6 +260,7 @@ class LocalFileHolder(val file: File) : ContentHolder() {
             globalClass.showMsg("No app found to open this file.")
         }
     }
+
 
     fun writeText(text: String) {
         file.writeText(text)
@@ -309,7 +316,18 @@ class LocalFileHolder(val file: File) : ContentHolder() {
                 context,
                 context.packageName,
                 ImageViewerActivity::class.java.name
-            )
+            ) {
+                val imageFiles = file.parentFile?.listFiles { _, name ->
+                    FileMimeType.imageFileType.contains(name.substringAfterLast('.').lowercase())
+                }
+                val imageUris = imageFiles?.map {
+                    FileProvider.getUriForFile(globalClass, "com.raival.compose.file.explorer.provider", it).toString()
+                } ?: emptyList()
+                val imagePaths = imageFiles?.map { it.absolutePath } ?: emptyList()
+
+                putStringArrayListExtra("imageList", ArrayList(imageUris))
+                putStringArrayListExtra("imagePathList", ArrayList(imagePaths))
+            }
             return true
         }
 

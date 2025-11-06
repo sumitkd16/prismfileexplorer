@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.app.ShareCompat
+import androidx.core.content.FileProvider
 import androidx.core.content.FileProvider.getUriForFile
 import com.raival.compose.file.explorer.App.Companion.globalClass
 import com.raival.compose.file.explorer.App.Companion.logger
@@ -33,10 +34,12 @@ import com.raival.compose.file.explorer.screen.main.tab.files.holder.ZipFileHold
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileListCategory
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.anyFileType
 import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.apkFileType
+import com.raival.compose.file.explorer.screen.main.tab.files.misc.FileMimeType.imageFileType
 import com.raival.compose.file.explorer.screen.main.tab.files.provider.StorageProvider
 import com.raival.compose.file.explorer.screen.main.tab.files.state.BottomOptionsBarState
 import com.raival.compose.file.explorer.screen.main.tab.files.state.DialogsState
 import com.raival.compose.file.explorer.screen.main.tab.files.task.CompressTask
+import com.raival.compose.file.explorer.screen.viewer.image.ImageViewerActivity
 import com.reandroid.archive.ZipAlign
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -251,6 +254,20 @@ class FilesTab(
     fun openFile(context: Context, item: ContentHolder) {
         if (item is LocalFileHolder && item.isApk()) {
             toggleApkDialog(item)
+        } else if (activeFolder is VirtualFileHolder && imageFileType.contains(item.extension)) {
+            (item as LocalFileHolder).openFileWithPackage(
+                context,
+                context.packageName,
+                ImageViewerActivity::class.java.name
+            ) {
+                val imageFiles = activeFolderContent.filter { imageFileType.contains(it.extension) }
+                val imageUris = imageFiles.map {
+                    FileProvider.getUriForFile(globalClass, "com.raival.compose.file.explorer.provider", (it as LocalFileHolder).file).toString()
+                }
+                val imagePaths = imageFiles.map { it.uniquePath }
+                putStringArrayListExtra("imageList", ArrayList(imageUris))
+                putStringArrayListExtra("imagePathList", ArrayList(imagePaths))
+            }
         } else {
             item.open(
                 context = context,
